@@ -288,4 +288,17 @@ One command. One port. Full app. No separate frontend server needed.
 | Guardrails | ✅ | 3-layer: blocklist + allowlist + gibberish detection |
 | No authentication required | ✅ | Fully open, no login |
 | Single deployable unit | ✅ | Backend serves frontend on single port 8000 |
->>>>>>> a52adb8cc92804a5db092a9851e334ebb606c9ba
+
+---
+
+# 👩‍💻 Author
+
+**Vaishnavi Shinde**
+
+AI / Machine Learning Enthusiast
+Interested in **LLMs, AI agents, and intelligent data systems**
+
+---
+
+⭐ If you like this project, consider giving the repository a star on GitHub!
+
