@@ -4,17 +4,14 @@ A context graph system with an LLM-powered natural language query interface buil
 
 ---
 
-## Live Demo
+## Live Demo Link
 
 > https://dodgeai-project.onrender.com
 
 ## GitHub
 
-> [Insert your GitHub repo URL here]
+> https://github.com/VaishnaviShinde5/DodgeAI_Project
 
----
-### Live Link 
->  https://dodgeai-fde-project-1.onrender.com
 ---
 
 ## Architecture Overview
