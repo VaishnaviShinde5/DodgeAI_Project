@@ -6,7 +6,7 @@ A context graph system with an LLM-powered natural language query interface buil
 
 ## Live Demo
 
-> [Insert your deployed URL here]
+> https://dodgeai-project.onrender.com
 
 ## GitHub
 
@@ -228,12 +228,11 @@ One command. One port. Full app. No separate frontend server needed.
 
 | Query | Type | Expected Result |
 |---|---|---|
-| `trace billing document 91150187` | Billing Doc 91150187 → Journal Entry 9400635958 → Customer 320000083 → Payment 9400635958 → Sales Order 740509 → Sales Order 740510 → Sales Order 740511 → Sales Order 740512 → Sales Order 740513 → Sales Order 740514
+| `trace billing document 91150187` | Graph trace | BillingDoc → Journal Entry → Customer → Payment → Sales Order |
 | `show top 5 billing documents by amount` | SQL | Top 5 invoices by totalNetAmount |
 | `which customer has the highest total amount` | SQL | Customer 320000083 — ₹55,337.76 |
 | `how many invoices are there` | SQL | 163 |
 | `show incomplete or broken order flows` | SQL | Invoices with no journal entry |
-| `show all invoices for customer 320000082` | SQL | 16 invoices |
 | `show total revenue from all invoices` | SQL | ₹60,908.76 |
 | `hi` / `tell me a joke` / `weather` | Guardrail | 🚫 Off-topic rejection message |
 
