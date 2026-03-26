@@ -228,7 +228,7 @@ One command. One port. Full app. No separate frontend server needed.
 
 | Query | Type | Expected Result |
 |---|---|---|
-| `trace billing document 91150187` | Graph trace | Invoice 91150187 → Journal Entry 9400635958 |
+| `trace billing document 91150187` | Billing Doc 91150187 → Journal Entry 9400635958 → Customer 320000083 → Payment 9400635958 → Sales Order 740509 → Sales Order 740510 → Sales Order 740511 → Sales Order 740512 → Sales Order 740513 → Sales Order 740514
 | `show top 5 billing documents by amount` | SQL | Top 5 invoices by totalNetAmount |
 | `which customer has the highest total amount` | SQL | Customer 320000083 — ₹55,337.76 |
 | `how many invoices are there` | SQL | 163 |
