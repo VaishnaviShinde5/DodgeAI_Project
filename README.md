@@ -1,47 +1,54 @@
-# Graph-Based Order-to-Cash Query System
+# 🔍 DodgeAI — Conversational SAP Order-to-Cash Analytics
 
-A context graph system with an LLM-powered natural language query interface built on SAP Order-to-Cash data.
+> Ask questions about your SAP O2C data in plain English. Get SQL results, graph traces, and business insights — instantly.
+
+**[🚀 Live Demo](https://dodgeai-project.onrender.com)** &nbsp;|&nbsp; **[GitHub Repo](https://github.com/VaishnaviShinde5/DodgeAI_Project)**
+
+---
+
+## What It Does
+
+DodgeAI is an AI-powered query interface over SAP Order-to-Cash (O2C) data. Instead of writing SQL or navigating complex ERP dashboards, you just ask:
+
+- *"Which customers have the highest total billed amount?"*
+- *"Find deliveries with no matching invoice"*
+- *"Trace billing document 90504248"*
+
+The system figures out whether to run a SQL query or trace a graph path — and gives you a clean answer.
+
+---
+## 🖼️ Screenshots
+
+### Login Page
+![Graph_View(Dataset)](./Output/graph_view.png)
+
 
 ---
 
-## Live Demo
-
-> [Insert your deployed URL here]
-
-## GitHub
-
-> [Insert your GitHub repo URL here]
-
----
-### Live Link 
->  https://dodgeai-fde-project-1.onrender.com
----
-
-## Architecture Overview
+## Architecture
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│                    Frontend (HTML + D3.js)           │
-│   Graph Visualization  │  Conversational Chat UI    │
+│              Frontend (HTML + D3.js)                │
+│   Graph Visualization  │  Conversational Chat UI   │
 └────────────────┬───────────────────┬────────────────┘
                  │  REST API         │
 ┌────────────────▼───────────────────▼────────────────┐
-│                 FastAPI Backend (Python)             │
+│               FastAPI Backend (Python)              │
 │                                                     │
-│   /graph endpoint        /query endpoint            │
-│   NetworkX DiGraph        Guardrail check           │
-│                           ↓                         │
-│                     "trace" keyword?                │
-│                      ↓         ↓                   │
-│               Graph BFS    LLM (Groq)              │
-│                            → SQL query             │
-│                            → SQLite                │
+│   /graph endpoint          /query endpoint          │
+│   NetworkX DiGraph          Guardrail check         │
+│                                  ↓                  │
+│                        "trace" keyword?             │
+│                         ↓          ↓               │
+│                   Graph BFS     LLM (Groq)         │
+│                                → SQL → SQLite      │
 └─────────────────────────────────────────────────────┘
                          │
 ┌────────────────────────▼────────────────────────────┐
-│              SQLite Database (data.db)              │
-│  invoices | sales_orders | deliveries | payments   │
-│  journals | products | business_partners | plants  │
+│             SQLite Database (data.db)               │
+│  invoices │ sales_orders │ deliveries │ payments   │
+│  journals │ products │ business_partners │ plants  │
 └─────────────────────────────────────────────────────┘
 ```
 
@@ -49,206 +56,79 @@ A context graph system with an LLM-powered natural language query interface buil
 
 ## Tech Stack
 
-| Layer | Choice | Reason |
-|-------|--------|--------|
-| Backend | FastAPI (Python) | Fast async API, auto Swagger docs, easy to run |
-| Database | SQLite | Zero setup, file-based, perfect for this dataset size, full SQL support |
-| Graph | NetworkX DiGraph | Lightweight, Pythonic, no external server needed |
-| Graph UI | D3.js force simulation | Industry standard, interactive, zero cost |
-| LLM | Groq (LLaMA 3.1 8B) | Free tier, very fast inference, reliable JSON output |
-| LLM API format | OpenAI-compatible | Easy to swap providers if needed |
+| Layer | Choice | Why |
+|-------|--------|-----|
+| Backend | FastAPI (Python) | Fast async API, auto Swagger docs |
+| Database | SQLite | Zero setup, file-based, full SQL |
+| Graph | NetworkX DiGraph | Lightweight, Pythonic, no external server |
+| Graph UI | D3.js force simulation | Interactive, industry standard |
+| LLM | Groq (LLaMA 3.1 8B) | Free tier, fast inference, reliable JSON output |
 
 ---
 
-## Database Design
+## How It Works
 
-All 8 entity types from the SAP O2C dataset are loaded into SQLite tables:
+### 1. Natural Language → SQL
+User asks a question → LLM generates a SQLite query → results returned as a table.
 
-| Table | Source | Key Fields |
-|-------|--------|------------|
+The LLM is given the full schema, SQLite-specific rules, and 5 few-shot examples. Output is post-processed to strip markdown, fix quoting issues, and validate it's a SELECT statement.
+
+### 2. Graph Trace (keyword: "trace")
+If the query contains "trace", a BFS traversal runs on the NetworkX graph instead of hitting the LLM — faster, deterministic, no API cost.
+
+**O2C Flow modeled:**
+```
+Customer → Sales Order → Delivery → Invoice → Journal Entry → Payment
+```
+
+### 3. Guardrail System
+Queries go through a 3-layer filter before reaching the LLM:
+- **Blocklist** — rejects off-topic keywords (weather, jokes, recipes, etc.)
+- **Allowlist** — requires at least one O2C domain keyword
+- **Gibberish detection** — rejects very short or vowel-free inputs
+
+This saves latency and API cost on irrelevant queries.
+
+---
+
+## Database Schema
+
+| Table | Source Data | Key Fields |
+|-------|-------------|------------|
 | `invoices` | billing_document_headers | billingDocument, soldToParty, totalNetAmount |
 | `sales_orders` | sales_order_headers | salesOrder, soldToParty, netAmount |
 | `deliveries` | outbound_delivery_headers | deliveryDocument, salesOrder, plant |
-| `payments` | payments_accounts_receivable | accountingDocument, soldToParty, amount |
-| `journals` | journal_entry_items_accounts_receivable | accountingDocument, billingDocument |
+| `payments` | payments_accounts_receivable | paymentDocument, soldToParty, amount |
+| `journals` | journal_entry_items_AR | accountingDocument, billingDocument |
 | `products` | products | product, productType, productGroup |
 | `business_partners` | business_partners | businessPartner, businessPartnerName |
 | `plants` | plants | plant, plantName, country |
-
-**Why SQLite over a graph DB (e.g. Neo4j)?**
-The dataset is relational in nature — entities link by foreign keys. SQL is excellent for aggregations (top N, totals, counts) which is what most business queries need. NetworkX handles the graph traversal use case (flow tracing). Using two specialized tools for two different query patterns is cleaner than forcing everything into one paradigm.
-
----
-
-## Graph Model
-
-Nodes represent business entities. Edges represent business relationships.
-
-**Node types:** `customer`, `sales_order`, `delivery`, `invoice`, `journal`, `payment`
-
-**Edge relationships:**
-- `customer → sales_order` (placed)
-- `sales_order → delivery` (delivered_via)
-- `customer → invoice` (billed)
-- `invoice → journal` (accounted)
-- `journal → payment` (settled_by)
-
-This models the full O2C flow: **Customer → Order → Delivery → Invoice → Journal → Payment**
-
----
-
-## LLM Prompting Strategy
-
-The LLM (LLaMA 3.1 8B via Groq) is given:
-
-1. **Full schema** — all 8 tables with column names and descriptions
-2. **SQLite-specific rules** — no `FETCH FIRST`, no square brackets, `LIMIT` only
-3. **Few-shot examples** — 5 example Q→SQL pairs covering the most common query types
-4. **Output constraint** — raw SQL only, no markdown, no explanation
-
-After generation, the SQL is post-processed to:
-- Strip markdown code fences
-- Extract only the SELECT line if the LLM added explanation text
-- Fix backtick/double-quote column wrapping
-
-**Fallback:** If the LLM returns invalid SQL, a safe default query is used.
-
----
-
-## Guardrail System
-
-The system restricts queries to the O2C domain using a two-layer keyword approach:
-
-**Layer 1 — Blocklist:** Off-topic keywords (weather, jokes, movie, sport, recipe, etc.) trigger an immediate rejection with a domain-restriction message.
-
-**Layer 2 — Allowlist:** The question must contain at least one domain keyword (invoice, billing, delivery, payment, sales order, product, plant, etc.) to proceed.
-
-**Edge cases handled:**
-- Very short inputs (< 5 chars) are rejected
-- Single-word nonsense inputs with no vowels are rejected
-- The guardrail runs before the LLM is called, saving latency and API cost
-
-**Example rejection:**
-> "Tell me a joke" → `"This system is designed to answer questions related to the SAP Order-to-Cash dataset only."`
-
----
-
-## Example Queries the System Can Answer
-
-- *Which customers have the highest total billed amount?*
-- *Show me the top 10 invoices by amount*
-- *How many sales orders are there?*
-- *Find invoices with no journal entry (broken flow)*
-- *Find deliveries with no matching invoice*
-- *Trace billing document 90504248*
-- *How many payments were made in total?*
-- *How many product are there in dataset?*
-
----
-
-## Running Locally
-
-```bash
-# 1. Install dependencies
-cd backend
-pip install -r requirements.txt
-
-# 2. Set your API key
-cp .env.example .env
-# Edit .env and add your GROQ_API_KEY
-
-# 3. Start the server
-uvicorn main:app --reload
-
-# 4. Open in browser
-# http://localhost:8000
-```
-
----
-
-## Project Structure
-
-```
-dodge-fde-project/
-├── backend/
-│   ├── main.py          # FastAPI app, routes, startup data loading
-│   ├── db.py            # SQLite schema + connection
-│   ├── graph.py         # NetworkX graph construction
-│   ├── llm.py           # Groq LLM integration + SQL generation
-│   ├── utils.py         # JSONL folder loader
-│   └── requirements.txt
-├── frontend/
-│   └── index.html       # Single-file frontend: D3 graph + chat UI
-├── data/
-│   └── sap-o2c-data/    # Raw JSONL dataset files
-└── README.md
-```
-
----
-
-## Tradeoffs & What I'd Improve With More Time
-
-<<<<<<< HEAD
-- **Graph DB (Neo4j/ArangoDB):** For deeper graph queries (multi-hop paths, subgraph patterns) a native graph DB would be more expressive than NetworkX + SQLite
-- **Streaming responses:** Groq supports streaming; adding it would make the chat feel faster
-- **Conversation memory:** Currently each query is stateless; adding message history would enable follow-up questions
-- **Node highlighting:** Highlight graph nodes referenced in query responses
-- **Vector search:** Embedding product/customer names for fuzzy matching
-=======
-### Prerequisites
-- Python 3.8+
-- pip
-
-### One-time setup
-
-```bash
-# 1. Clone the repo
-git clone <your-repo-url>
-cd dodge-fde-project
-
-# 2. Install dependencies
-cd backend
-pip install fastapi uvicorn networkx pydantic python-dotenv requests aiofiles
-
-# 3. Start backend (also serves frontend)
-uvicorn main:app --reload
-```
-
-### Open the app
-
-```
-http://localhost:8000
-```
-
-One command. One port. Full app. No separate frontend server needed.
 
 ---
 
 ## Example Queries
 
-| Query | Type | Expected Result |
-|---|---|---|
-| `trace billing document 91150187` | Graph trace | Invoice 91150187 → Journal Entry 9400635958 |
-| `show top 5 billing documents by amount` | SQL | Top 5 invoices by totalNetAmount |
-| `which customer has the highest total amount` | SQL | Customer 320000083 — ₹55,337.76 |
-| `how many invoices are there` | SQL | 163 |
-| `show incomplete or broken order flows` | SQL | Invoices with no journal entry |
-| `show all invoices for customer 320000082` | SQL | 16 invoices |
-| `show total revenue from all invoices` | SQL | ₹60,908.76 |
-| `hi` / `tell me a joke` / `weather` | Guardrail | 🚫 Off-topic rejection message |
+| Query | Type | Result |
+|-------|------|--------|
+| `Which customer has the highest total amount?` | SQL | Customer with max billed amount |
+| `Show top 10 invoices by amount` | SQL | Ranked invoice list |
+| `Find invoices with no journal entry` | SQL | Broken O2C flows |
+| `Find deliveries with no matching invoice` | SQL | Unbilled deliveries |
+| `Trace billing document 90504248` | Graph BFS | Full O2C path for that document |
+| `Tell me a joke` | Guardrail | ❌ Off-topic rejection |
 
 ---
 
 ## API Reference
 
 | Method | Endpoint | Description |
-|---|---|---|
+|--------|----------|-------------|
 | GET | `/` | Serves frontend UI |
-| GET | `/health` | Health check — `{"message": "Backend running 🚀"}` |
-| GET | `/graph` | All graph nodes and edges as JSON |
+| GET | `/health` | Health check |
+| GET | `/graph` | All nodes and edges as JSON |
 | POST | `/query` | `{"question": "..."}` → typed response |
 
-### Response Types
+**Response types:**
 
 ```json
 // SQL result
@@ -256,10 +136,10 @@ One command. One port. Full app. No separate frontend server needed.
   "type": "sql_query",
   "sql": "SELECT ...",
   "columns": ["billingDocument", "totalNetAmount"],
-  "result": [["90504243", 2033.65], ...]
+  "result": [["90504243", 2033.65]]
 }
 
-// Graph flow trace
+// Graph trace
 {
   "type": "graph_trace",
   "flow": {
@@ -272,24 +152,71 @@ One command. One port. Full app. No separate frontend server needed.
 // Guardrail triggered
 {
   "type": "guardrail",
-  "answer": "This system is designed to answer questions related to the provided SAP Order-to-Cash dataset only."
+  "answer": "This system answers SAP Order-to-Cash questions only."
 }
 ```
 
 ---
 
-## Requirements Coverage
+## Running Locally
 
-| Requirement | Status | Implementation |
-|---|---|---|
-| Graph Construction | ✅ | NetworkX DiGraph — Invoice, Customer, Journal nodes + edges |
-| Graph Visualization | ✅ | D3.js force-directed — zoom, pan, drag, click popups |
-| Conversational Query Interface | ✅ | Chat UI with real-time LLM responses |
-| Natural language → SQL | ✅ | Groq LLaMA 3.1 8B with structured prompt + post-processing |
-| Flow Trace (Invoice → Journal) | ✅ | Graph traversal using NetworkX successors |
-| Broken/incomplete flow detection | ✅ | SQL: WHERE accountingDocument IS NULL |
-| Highest billing documents query | ✅ | ORDER BY totalNetAmount DESC |
-| Guardrails | ✅ | 3-layer: blocklist + allowlist + gibberish detection |
-| No authentication required | ✅ | Fully open, no login |
-| Single deployable unit | ✅ | Backend serves frontend on single port 8000 |
->>>>>>> a52adb8cc92804a5db092a9851e334ebb606c9ba
+```bash
+# 1. Clone the repo
+git clone https://github.com/VaishnaviShinde5/DodgeAI_Project
+cd DodgeAI_Project/backend
+
+# 2. Install dependencies
+pip install -r requirements.txt
+
+# 3. Set your API key
+cp .env.example .env
+# Edit .env → add your GROQ_API_KEY
+
+# 4. Start the server (also serves frontend)
+uvicorn main:app --reload
+
+# 5. Open in browser
+# http://localhost:8000
+```
+
+One command. One port. Full app — no separate frontend server.
+
+---
+
+## Project Structure
+
+```
+DodgeAI_Project/
+├── backend/
+│   ├── main.py          # FastAPI app, routes, data loading
+│   ├── db.py            # SQLite schema + connection
+│   ├── graph.py         # NetworkX graph construction
+│   ├── llm.py           # Groq LLM integration + SQL generation
+│   ├── utils.py         # JSONL folder loader
+│   └── requirements.txt
+├── frontend/
+│   └── index.html       # Single-file UI: D3 graph + chat
+├── data/
+│   └── sap-o2c-data/    # Raw JSONL dataset (8 entity types)
+└── README.md
+```
+
+---
+
+## Tradeoffs & What I'd Improve With More Time
+
+- **Graph DB (Neo4j/ArangoDB):** For multi-hop path queries and subgraph patterns, a native graph DB would be more expressive than NetworkX + SQLite
+- **Streaming responses:** Groq supports streaming; adding it would make the chat feel more real-time
+- **Conversation memory:** Currently stateless — each query is independent. Message history would enable follow-up questions
+- **Embedding-based guardrail:** The current keyword approach can be gamed. Intent classification via embeddings would be more robust
+- **Node highlighting:** Highlight graph nodes referenced in chat responses
+- **Vector search:** Fuzzy matching for product/customer names
+
+---
+
+## Author
+
+**Vaishnavi Shinde** — AI / ML Enthusiast  
+Interested in LLMs, AI agents, and intelligent data systems
+
+⭐ If this was useful, consider starring the repo!
