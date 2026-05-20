@@ -19,7 +19,7 @@ The system figures out whether to run a SQL query or trace a graph path — and 
 ---
 ## 🖼️ Screenshots
 
-### Login Page
+### 
 ![Graph_View(Dataset)](./Output/graph_view.png)
 
 
